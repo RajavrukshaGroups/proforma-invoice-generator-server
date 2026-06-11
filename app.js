@@ -86,6 +86,7 @@ import cors from "cors";
 import fileUpload from "express-fileupload";
 import contactRoutes from "./routes/contactRoutes.js";
 import PIRoutes from "./routes/PIRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 
 const app = express();
 
@@ -181,7 +182,8 @@ mongoose
 // ======================
 app.use("/", contactRoutes);
 app.use("/", PIRoutes);
-
+app.use("/api/auth", authRoutes);
+// app.use("/", authRoutes);
 // ======================
 // Global Error Handler
 // ======================
