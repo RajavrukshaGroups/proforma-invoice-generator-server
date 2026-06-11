@@ -10,7 +10,6 @@
 // import contactRoutes from "./routes/contactRoutes.js";
 // import fileUpload from "express-fileupload";
 
-
 // const app = express();
 // // dotenv.config();
 
@@ -23,7 +22,6 @@
 
 // app.use(express.json());
 // app.use(express.urlencoded({ extended: true }));
-
 
 // const allowedOrigins = [
 //   "https://digitaleliteservices.in",
@@ -111,16 +109,18 @@ app.use(express.static("public"));
 app.use(
   cors({
     origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:3000",
+      // "http://localhost:5173",
+      // "http://localhost:5174",
+      // "http://localhost:3000",
       "https://digitaleliteservices.in",
+      "https://pigenerator.digitaleliteservices.in",
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
+console.log("Mongo URL:", process.env.MONGO_URL);
 
 // ======================
 // Body Parser Limits
@@ -128,14 +128,14 @@ app.use(
 app.use(
   express.json({
     limit: "50mb",
-  })
+  }),
 );
 
 app.use(
   express.urlencoded({
     extended: true,
     limit: "50mb",
-  })
+  }),
 );
 
 // ======================
@@ -149,7 +149,7 @@ app.use(
       fileSize: 50 * 1024 * 1024, // 50 MB
     },
     abortOnLimit: true,
-  })
+  }),
 );
 
 // ======================
@@ -199,7 +199,8 @@ app.use((err, req, res, next) => {
 // ======================
 // Start Server
 // ======================
-const PORT =  5000;
+// const PORT =  5000;
+const PORT = 9500;
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
