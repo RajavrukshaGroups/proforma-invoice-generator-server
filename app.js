@@ -186,6 +186,7 @@ app.use("/", PIRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/", pdfRoutes);
 
+
 // app.use("/", authRoutes);
 // ======================
 // Global Error Handler
@@ -202,12 +203,8 @@ app.use((err, req, res, next) => {
 // ======================
 // Start Server
 // ======================
-<<<<<<< HEAD
-const PORT = 5000;
-=======
 // const PORT =  5000;
 const PORT = 9500;
->>>>>>> 787a32af71fb3a86794620f5544a826557b6582b
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
