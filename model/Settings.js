@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 
 const settingsSchema = new mongoose.Schema(
   {
@@ -12,6 +12,7 @@ const settingsSchema = new mongoose.Schema(
     phone: String,
     email: String,
     website: String,
+    terms: [String],
   },
   {
     timestamps: true,
