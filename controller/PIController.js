@@ -1,25 +1,11 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import ProformaInvoice from "../model/ProformaInvoice.js";
 import Settings from "../model/Settings.js";
-import { appendInvoiceToSheet } from "../utils/googlesheet.js";
-
-// const createPI = async (req, res) => {
-//   try {
-//     const invoice = await ProformaInvoice.create(req.body);
-
-//     res.status(201).json({
-//       success: true,
-//       data: invoice,
-//       message: "Invoice created successfully",
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
-
+import {
+  appendInvoiceToSheet,
+  updateInvoiceInSheet,
+  deleteInvoiceFromSheet,
+} from "../utils/googlesheet.js";
 
 const createPI = async (req, res) => {
   try {
@@ -48,35 +34,6 @@ const createPI = async (req, res) => {
   }
 };
 
-
-// const getPI = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-
-//     const invoice = await ProformaInvoice.findById(id); // ✅ FIXED
-
-//     if (!invoice) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Invoice not found",
-//       });
-//     }
-
-//     return res.status(200).json({
-//       success: true,
-//       data: invoice,
-//     });
-
-//   } catch (e) {
-//     console.error("Get PI Error:", e);
-
-//     return res.status(500).json({
-//       success: false,
-//       message: "Server error while fetching invoice",
-//       error: e.message,
-//     });
-//   }
-// };
 const getPI = async (req, res) => {
   try {
     const { id } = req.params;
@@ -142,6 +99,15 @@ const deletePI = async (req, res) => {
       });
     }
 
+    // Sync delete to Google Sheet
+    try {
+      if (deleted.invoiceNumber) {
+        await deleteInvoiceFromSheet(deleted.invoiceNumber);
+      }
+    } catch (sheetError) {
+      console.error("Google Sheet Delete Error:", sheetError);
+    }
+
     res.status(200).json({
       success: true,
       message: "Invoice deleted successfully",
@@ -158,6 +124,14 @@ const updatePI = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const originalInvoice = await ProformaInvoice.findById(id);
+    if (!originalInvoice) {
+      return res.status(404).json({
+        success: false,
+        message: "Proforma Invoice not found",
+      });
+    }
+
     const updatedPI = await ProformaInvoice.findByIdAndUpdate(
       id,
       { $set: req.body },
@@ -167,11 +141,11 @@ const updatePI = async (req, res) => {
       }
     );
 
-    if (!updatedPI) {
-      return res.status(404).json({
-        success: false,
-        message: "Proforma Invoice not found",
-      });
+    // Sync update to Google Sheet
+    try {
+      await updateInvoiceInSheet(updatedPI, originalInvoice.invoiceNumber);
+    } catch (sheetError) {
+      console.error("Google Sheet Update Error:", sheetError);
     }
 
     return res.status(200).json({
@@ -233,6 +207,4 @@ const getSettings = async (req, res) => {
   }
 };
 
-
-
-export default { createPI, getPI, getAllPI, deletePI, updatePI,saveSettings,getSettings, };
+export default { createPI, getPI, getAllPI, deletePI, updatePI, saveSettings, getSettings };

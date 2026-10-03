@@ -19,6 +19,19 @@ const InvoiceSchema = new mongoose.Schema(
     gstMode: String,
     paymentStatus: { type: String, default: 'Pending' },
     paidPercentage: { type: Number, default: 0 },
+    paidAmount: { type: Number, default: 0 },
+    paymentMode: { type: String, default: '' },
+    transactionId: { type: String, default: '' },
+
+    installments: [
+      {
+        installmentNumber: Number,
+        amount: Number,
+        paymentMode: String,
+        transactionId: String,
+        date: String,
+      },
+    ],
 
     items: [
       {
@@ -43,6 +56,7 @@ const InvoiceSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    strict: false,
   }
 );
 
