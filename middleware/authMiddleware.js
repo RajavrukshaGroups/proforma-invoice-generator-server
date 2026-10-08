@@ -1,71 +1,39 @@
-// const jwt = require("jsonwebtoken");
+﻿import jwt from "jsonwebtoken";
 
-// module.exports = async (
-//   req,
-//   res,
-//   next
-// ) => {
-//   try {
-//     const authHeader =
-//       req.headers.authorization;
-
-//     if (!authHeader) {
-//       return res.status(401).json({
-//         message: "Unauthorized",
-//       });
-//     }
-
-//     const token =
-//       authHeader.split(" ")[1];
-
-//     const decoded = jwt.verify(
-//       token,
-//       process.env.JWT_SECRET
-//     );
-
-//     req.user = decoded;
-
-//     next();
-//   } catch (error) {
-//     res.status(401).json({
-//       message: "Invalid token",
-//     });
-//   }
-// };
-
-import jwt from "jsonwebtoken";
-
-const authMiddleware = async (
-  req,
-  res,
-  next
-) => {
+const authMiddleware = async (req, res, next) => {
   try {
-    const authHeader =
-      req.headers.authorization;
+    const authHeader = req.headers.authorization;
 
     if (!authHeader) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized",
+        message: "Unauthorized: No token provided",
       });
     }
 
-    const token =
-      authHeader.split(" ")[1];
+    const token = authHeader.split(" ")[1];
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: Invalid token format",
+      });
+    }
 
-    req.user = decoded;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Normalize so both _id and id are always available
+    req.user = {
+      ...decoded,
+      _id: decoded._id || decoded.id,
+      id: decoded.id || decoded._id,
+    };
 
     next();
   } catch (error) {
     return res.status(401).json({
       success: false,
-      message: "Invalid Token",
+      message: "Invalid or expired token",
     });
   }
 };

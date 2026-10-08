@@ -1,14 +1,15 @@
-import express from "express"
+﻿import express from "express";
 const router = express.Router();
 
-import PIController from "../controller/PIController.js"
+import PIController from "../controller/PIController.js";
+import authMiddleware from "../middleware/authMiddleware.js";
 
-router.post("/createPI", PIController.createPI)
-router.get("/getPI/:id", PIController.getPI)
-router.get("/getAllPI", PIController.getAllPI)
-router.delete("/deletePI/:id", PIController.deletePI)
-router.put("/updatePI/:id", PIController.updatePI)
-router.post("/saveSettings", PIController.saveSettings)
-router.get("/getSettings", PIController.getSettings)
+router.post("/createPI", authMiddleware, PIController.createPI);
+router.get("/getPI/:id", authMiddleware, PIController.getPI);
+router.get("/getAllPI", authMiddleware, PIController.getAllPI);
+router.delete("/deletePI/:id", authMiddleware, PIController.deletePI);
+router.put("/updatePI/:id", authMiddleware, PIController.updatePI);
+router.post("/saveSettings", PIController.saveSettings);
+router.get("/getSettings", PIController.getSettings);
 
 export default router;

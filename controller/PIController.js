@@ -1,16 +1,37 @@
 ﻿import "dotenv/config";
 import ProformaInvoice from "../model/ProformaInvoice.js";
 import Settings from "../model/Settings.js";
+
 import {
   appendInvoiceToSheet,
   updateInvoiceInSheet,
   deleteInvoiceFromSheet,
 } from "../utils/googlesheet.js";
 
+/* =========================================================
+   CREATE PROFORMA INVOICE
+========================================================= */
+
 const createPI = async (req, res) => {
   try {
-    // Save invoice in MongoDB
-    const invoice = await ProformaInvoice.create(req.body);
+    // Get logged-in user's ID from auth middleware or request body
+    const createdBy = req.user?._id || req.user?.id || req.body?.createdBy;
+
+    if (!createdBy) {
+      return res.status(401).json({
+        success: false,
+        message: "User authentication required (createdBy is missing)",
+      });
+    }
+
+    // Create PI with logged-in user ID
+    const invoice = await ProformaInvoice.create({
+      ...req.body,
+      createdBy,
+    });
+
+    // Populate createdBy details before returning
+    await invoice.populate("createdBy", "name email");
 
     // Save invoice in Google Sheet
     try {
@@ -19,7 +40,7 @@ const createPI = async (req, res) => {
       console.error("Google Sheet Error:", sheetError);
     }
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: invoice,
       message: "Invoice created successfully",
@@ -27,12 +48,17 @@ const createPI = async (req, res) => {
   } catch (error) {
     console.error("Create PI Error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
+
+
+/* =========================================================
+   GET SINGLE PROFORMA INVOICE
+========================================================= */
 
 const getPI = async (req, res) => {
   try {
@@ -45,7 +71,9 @@ const getPI = async (req, res) => {
       });
     }
 
-    const invoice = await ProformaInvoice.findById(id).lean();
+    const invoice = await ProformaInvoice.findById(id)
+      .populate("createdBy", "name email")
+      .lean();
 
     if (!invoice) {
       return res.status(404).json({
@@ -58,37 +86,57 @@ const getPI = async (req, res) => {
       success: true,
       data: invoice,
     });
-
-  } catch (e) {
-    console.error("Get PI Error:", e);
+  } catch (error) {
+    console.error("Get PI Error:", error);
 
     return res.status(500).json({
       success: false,
       message: "Server error while fetching invoice",
-      error: e.message,
+      error: error.message,
     });
   }
 };
 
+
+/* =========================================================
+   GET ALL PROFORMA INVOICES
+========================================================= */
+
 const getAllPI = async (req, res) => {
   try {
-    const invoices = await ProformaInvoice.find().sort({ createdAt: -1 });
+    const invoices = await ProformaInvoice.find()
+      .populate("createdBy", "name email")
+      .sort({ createdAt: -1 });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: invoices,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("Get All PI Error:", error);
+
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
 
+
+/* =========================================================
+   DELETE PROFORMA INVOICE
+========================================================= */
+
 const deletePI = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Invoice ID is required",
+      });
+    }
 
     const deleted = await ProformaInvoice.findByIdAndDelete(id);
 
@@ -108,23 +156,38 @@ const deletePI = async (req, res) => {
       console.error("Google Sheet Delete Error:", sheetError);
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Invoice deleted successfully",
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("Delete PI Error:", error);
+
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
 
+
+/* =========================================================
+   UPDATE PROFORMA INVOICE
+========================================================= */
+
 const updatePI = async (req, res) => {
   try {
     const { id } = req.params;
 
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Invoice ID is required",
+      });
+    }
+
     const originalInvoice = await ProformaInvoice.findById(id);
+
     if (!originalInvoice) {
       return res.status(404).json({
         success: false,
@@ -132,18 +195,40 @@ const updatePI = async (req, res) => {
       });
     }
 
+    // Preserve original createdBy if already present, or use current user / body
+    const createdBy =
+      originalInvoice.createdBy ||
+      req.user?._id ||
+      req.user?.id ||
+      req.body?.createdBy;
+
+    const updateData = {
+      ...req.body,
+      ...(createdBy ? { createdBy } : {}),
+    };
+
     const updatedPI = await ProformaInvoice.findByIdAndUpdate(
       id,
-      { $set: req.body },
+      { $set: updateData },
       {
         new: true,
         runValidators: true,
       }
-    );
+    ).populate("createdBy", "name email");
+
+    if (!updatedPI) {
+      return res.status(404).json({
+        success: false,
+        message: "Proforma Invoice not found",
+      });
+    }
 
     // Sync update to Google Sheet
     try {
-      await updateInvoiceInSheet(updatedPI, originalInvoice.invoiceNumber);
+      await updateInvoiceInSheet(
+        updatedPI,
+        originalInvoice.invoiceNumber
+      );
     } catch (sheetError) {
       console.error("Google Sheet Update Error:", sheetError);
     }
@@ -153,7 +238,6 @@ const updatePI = async (req, res) => {
       message: "Proforma Invoice updated successfully",
       data: updatedPI,
     });
-
   } catch (error) {
     console.error("Update PI Error:", error);
 
@@ -165,6 +249,11 @@ const updatePI = async (req, res) => {
   }
 };
 
+
+/* =========================================================
+   SAVE SETTINGS
+========================================================= */
+
 const saveSettings = async (req, res) => {
   try {
     const settings = await Settings.findOneAndUpdate(
@@ -172,7 +261,7 @@ const saveSettings = async (req, res) => {
       req.body,
       {
         new: true,
-        upsert: true, // insert if not exists
+        upsert: true,
       }
     );
 
@@ -182,6 +271,8 @@ const saveSettings = async (req, res) => {
       data: settings,
     });
   } catch (error) {
+    console.error("Save Settings Error:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -189,9 +280,16 @@ const saveSettings = async (req, res) => {
   }
 };
 
+
+/* =========================================================
+   GET SETTINGS
+========================================================= */
+
 const getSettings = async (req, res) => {
   try {
-    const settings = await Settings.find().sort({ createdAt: -1 });
+    const settings = await Settings.find().sort({
+      createdAt: -1,
+    });
 
     return res.status(200).json({
       success: true,
@@ -207,4 +305,17 @@ const getSettings = async (req, res) => {
   }
 };
 
-export default { createPI, getPI, getAllPI, deletePI, updatePI, saveSettings, getSettings };
+
+/* =========================================================
+   EXPORT
+========================================================= */
+
+export default {
+  createPI,
+  getPI,
+  getAllPI,
+  deletePI,
+  updatePI,
+  saveSettings,
+  getSettings,
+};
