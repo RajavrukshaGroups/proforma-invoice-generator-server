@@ -310,6 +310,120 @@ const getSettings = async (req, res) => {
    EXPORT
 ========================================================= */
 
+
+/* =========================================================
+   EXPORT / SYNC SINGLE INVOICE TO GOOGLE SHEET
+========================================================= */
+
+const exportToSheet = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let invoice = null;
+
+    if (id) {
+      invoice = await ProformaInvoice.findById(id).populate("createdBy", "name email");
+    }
+
+    if (!invoice && req.body?.invoiceNumber) {
+      invoice = req.body;
+    }
+
+    if (!invoice) {
+      return res.status(404).json({
+        success: false,
+        message: "Invoice not found",
+      });
+    }
+
+    await updateInvoiceInSheet(invoice);
+
+    const sheetId = process.env.GOOGLE_SHEET_ID;
+    const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+
+    return res.status(200).json({
+      success: true,
+      message: `Invoice ${invoice.invoiceNumber} successfully synced to Google Sheet`,
+      sheetUrl,
+      data: invoice,
+    });
+  } catch (error) {
+    console.error("Export to Sheet Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to export invoice to Google Sheet",
+    });
+  }
+};
+
+/* =========================================================
+   EXPORT / SYNC ALL INVOICES TO GOOGLE SHEET
+========================================================= */
+
+const exportAllToSheet = async (req, res) => {
+  try {
+    const { ids } = req.body || {};
+    let query = {};
+    if (Array.isArray(ids) && ids.length > 0) {
+      query = { _id: { $in: ids } };
+    }
+
+    const invoices = await ProformaInvoice.find(query)
+      .populate("createdBy", "name email")
+      .sort({ createdAt: -1 });
+
+    let syncedCount = 0;
+    const errors = [];
+    for (const inv of invoices) {
+      try {
+        await updateInvoiceInSheet(inv);
+        syncedCount++;
+      } catch (err) {
+        console.error(`Failed to sync invoice ${inv.invoiceNumber}:`, err.message);
+        errors.push({ invoiceNumber: inv.invoiceNumber, error: err.message });
+      }
+    }
+
+    const sheetId = process.env.GOOGLE_SHEET_ID;
+    const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+
+    return res.status(200).json({
+      success: true,
+      message: `${syncedCount} of ${invoices.length} invoices synced to Google Sheet`,
+      syncedCount,
+      totalCount: invoices.length,
+      errors,
+      sheetUrl,
+    });
+  } catch (error) {
+    console.error("Export All to Sheet Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to export all invoices to Google Sheet",
+    });
+  }
+};
+
+/* =========================================================
+   GET GOOGLE SHEET INFO
+========================================================= */
+
+const getSheetInfo = async (req, res) => {
+  try {
+    const sheetId = process.env.GOOGLE_SHEET_ID;
+    const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+    return res.status(200).json({
+      success: true,
+      sheetId,
+      sheetUrl,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export default {
   createPI,
   getPI,
@@ -318,4 +432,7 @@ export default {
   updatePI,
   saveSettings,
   getSettings,
+  exportToSheet,
+  exportAllToSheet,
+  getSheetInfo,
 };

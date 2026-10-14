@@ -11,5 +11,8 @@ router.delete("/deletePI/:id", authMiddleware, PIController.deletePI);
 router.put("/updatePI/:id", authMiddleware, PIController.updatePI);
 router.post("/saveSettings", PIController.saveSettings);
 router.get("/getSettings", PIController.getSettings);
+router.post("/exportToSheet/:id", authMiddleware, PIController.exportToSheet);
+router.post("/exportAllToSheet", authMiddleware, PIController.exportAllToSheet);
+router.get("/getSheetInfo", PIController.getSheetInfo);
 
 export default router;
